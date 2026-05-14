@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Demo</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap');
+
+        :root {
+            --bg: #080b12;
+            --surface: #0e1117;
+            --panel: #131720;
+            --border: #1e2535;
+            --accent: #38bdf8;
+            --accent2: #818cf8;
+            --green: #34d399;
+            --yellow: #fbbf24;
+            --red: #f87171;
+            --text: #cbd5e1;
+            --muted: #475569;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Syne',sans-serif;
+            min-height: 100vh;
+        }
+
+            body::before {
+                content: '';
+                position: fixed;
+                inset: 0;
+                background-image: linear-gradient(rgba(56,189,248,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(56,189,248,.03) 1px,transparent 1px);
+                background-size: 50px 50px;
+                pointer-events: none;
+                z-index: 0;
+            }
+
+        .app {
+            position: relative;
+            z-index: 1;
+            max-width: 1060px;
+            margin: 0 auto;
+            padding: 20px 16px;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg,var(--accent),var(--accent2));
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            box-shadow: 0 0 18px rgba(56,189,248,.25);
+        }
+
+        .logo h1 {
+            font-size: 1.2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg,var(--accent),var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo span {
+            font-size: .6rem;
+            font-family: 'Space Mono',monospace;
+            color: var(--muted);
+            display: block;
+        }
+
+        #statusBadge {
+            font-family: 'Space Mono',monospace;
+            font-size: .62rem;
+            padding: 4px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            transition: all .3s;
+        }
+
+            #statusBadge.connected {
+                border-color: var(--green);
+                color: var(--green);
+                box-shadow: 0 0 14px rgba(52,211,153,.25);
+            }
+
+            #statusBadge.calling {
+                border-color: var(--yellow);
+                color: var(--yellow);
+                animation: blink 1.2s infinite;
+            }
+
+        @keyframes blink {
+            0%,100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: .4
+            }
+        }
+
+        /* Role picker */
+        .role-bar {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .role-btn {
+            padding: 14px 10px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            cursor: pointer;
+            font-family: 'Space Mono',monospace;
+            font-size: .72rem;
+            text-align: center;
+            transition: all .2s;
+            color: var(--muted);
+        }
+
+            .role-btn .ri {
+                font-size: 1.6rem;
+                display: block;
+                margin-bottom: 5px;
+            }
+
+            .role-btn .rl {
+                font-weight: 700;
+                color: var(--text);
+                display: block;
+                margin-bottom: 2px;
+            }
+
+            .role-btn:hover {
+                border-color: var(--border-bright,#2d3a50);
+            }
+
+            .role-btn.sel-a {
+                border-color: var(--accent);
+                background: rgba(56,189,248,.07);
+                color: var(--accent);
+            }
+
+                .role-btn.sel-a .rl {
+                    color: var(--accent);
+                }
+
+            .role-btn.sel-b {
+                border-color: var(--accent2);
+                background: rgba(129,140,248,.07);
+                color: var(--accent2);
+            }
+
+                .role-btn.sel-b .rl {
+                    color: var(--accent2);
+                }
+
+        /* Alert */
+        .alert {
+            padding: 10px 14px;
+            border-radius: 8px;
+            margin-bottom: 14px;
+            font-size: .75rem;
+            font-family: 'Space Mono',monospace;
+            display: none;
+        }
+
+            .alert.show {
+                display: block;
+            }
+
+            .alert.info {
+                background: rgba(56,189,248,.08);
+                border: 1px solid rgba(56,189,248,.3);
+                color: var(--accent);
+            }
+
+            .alert.ok {
+                background: rgba(52,211,153,.08);
+                border: 1px solid rgba(52,211,153,.3);
+                color: var(--green);
+            }
+
+            .alert.warn {
+                background: rgba(251,191,36,.08);
+                border: 1px solid rgba(251,191,36,.3);
+                color: var(--yellow);
+            }
+
+            .alert.err {
+                background: rgba(248,113,113,.08);
+                border: 1px solid rgba(248,113,113,.3);
+                color: var(--red);
+            }
+
+        /* Videos */
+        .vrow {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        @media(max-width:600px) {
+            .vrow {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .vcard {
+            position: relative;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 13px;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+            transition: border-color .3s,box-shadow .3s;
+        }
+
+            .vcard.live {
+                border-color: var(--accent);
+                box-shadow: 0 0 16px rgba(56,189,248,.22);
+            }
+
+            .vcard.rlive {
+                border-color: var(--green);
+                box-shadow: 0 0 16px rgba(52,211,153,.22);
+            }
+
+            .vcard video {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+            }
+
+        .vlabel {
+            position: absolute;
+            bottom: 9px;
+            left: 9px;
+            font-family: 'Space Mono',monospace;
+            font-size: .62rem;
+            padding: 3px 9px;
+            border-radius: 5px;
+            background: rgba(0,0,0,.65);
+            backdrop-filter: blur(6px);
+            border: 1px solid rgba(255,255,255,.07);
+        }
+
+            .vlabel.you {
+                color: var(--accent);
+            }
+
+            .vlabel.them {
+                color: var(--green);
+            }
+
+        .vph {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            color: var(--muted);
+        }
+
+            .vph .ava {
+                width: 50px;
+                height: 50px;
+                background: var(--panel);
+                border: 2px dashed var(--border);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 22px;
+            }
+
+            .vph p {
+                font-family: 'Space Mono',monospace;
+                font-size: .68rem;
+            }
+
+        .cbar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 13px;
+            padding: 12px 18px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .cb {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all .2s;
+        }
+
+            .cb.on {
+                background: var(--surface);
+                border: 1px solid var(--border);
+                color: var(--text);
+            }
+
+            .cb.off {
+                background: rgba(248,113,113,.12);
+                border: 1px solid var(--red);
+                color: var(--red);
+            }
+
+            .cb:hover:not(:disabled) {
+                transform: scale(1.08);
+            }
+
+            .cb.start {
+                width: 52px;
+                height: 52px;
+                font-size: 19px;
+                background: var(--green);
+                color: #000;
+                box-shadow: 0 0 16px rgba(52,211,153,.35);
+            }
+
+            .cb.hangup {
+                width: 52px;
+                height: 52px;
+                font-size: 19px;
+                background: var(--red);
+                color: #fff;
+                box-shadow: 0 0 16px rgba(248,113,113,.35);
+            }
+
+            .cb:disabled {
+                opacity: .35;
+                cursor: not-allowed;
+            }
+
+        /* Wizard */
+        .wstep {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            overflow: hidden;
+            transition: border-color .3s,opacity .3s;
+        }
+
+            .wstep.pending {
+                opacity: .5;
+            }
+
+            .wstep.act-a {
+                border-color: var(--accent);
+            }
+
+            .wstep.act-b {
+                border-color: var(--accent2);
+            }
+
+            .wstep.done {
+                border-color: var(--green);
+                opacity: .7;
+            }
+
+        .whead {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 13px 15px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .wnum {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            font-family: 'Space Mono',monospace;
+            font-size: .68rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--muted);
+        }
+
+        .wstep.act-a .wnum {
+            background: rgba(56,189,248,.15);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .wstep.act-b .wnum {
+            background: rgba(129,140,248,.15);
+            border-color: var(--accent2);
+            color: var(--accent2);
+        }
+
+        .wstep.done .wnum {
+            background: rgba(52,211,153,.15);
+            border-color: var(--green);
+            color: var(--green);
+        }
+
+        .wtitle {
+            font-weight: 700;
+            font-size: .88rem;
+        }
+
+        .wsub {
+            font-size: .67rem;
+            color: var(--muted);
+            font-family: 'Space Mono',monospace;
+            margin-top: 1px;
+        }
+
+        .warr {
+            margin-left: auto;
+            color: var(--muted);
+            font-size: .75rem;
+            transition: transform .2s;
+        }
+
+        .wstep.open .warr {
+            transform: rotate(180deg);
+        }
+
+        .wbody {
+            display: none;
+            padding: 0 15px 15px;
+        }
+
+        .wstep.open .wbody {
+            display: block;
+        }
+
+        /* Fields */
+        .field {
+            margin-bottom: 11px;
+        }
+
+        label {
+            display: block;
+            font-size: .62rem;
+            color: var(--muted);
+            margin-bottom: 5px;
+            font-family: 'Space Mono',monospace;
+            letter-spacing: .4px;
+            text-transform: uppercase;
+        }
+
+        textarea, input[type=text] {
+            width: 100%;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 9px 11px;
+            border-radius: 7px;
+            font-family: 'Space Mono',monospace;
+            font-size: .68rem;
+            outline: none;
+            transition: border-color .2s,box-shadow .2s;
+            resize: none;
+        }
+
+        textarea {
+            height: 85px;
+        }
+
+            textarea:focus, input[type=text]:focus {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 2px rgba(56,189,248,.1);
+            }
+
+        .hint {
+            font-family: 'Space Mono',monospace;
+            font-size: .6rem;
+            color: var(--muted);
+            margin-top: 3px;
+        }
+
+            .hint.warn {
+                color: var(--yellow);
+            }
+
+            .hint.ok {
+                color: var(--green);
+            }
+
+        /* Buttons */
+        .brow {
+            display: flex;
+            gap: 7px;
+            flex-wrap: wrap;
+            margin-top: 9px;
+        }
+
+        .btn {
+            padding: 8px 15px;
+            border-radius: 7px;
+            border: none;
+            cursor: pointer;
+            font-family: 'Space Mono',monospace;
+            font-size: .68rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all .2s;
+            white-space: nowrap;
+        }
+
+            .btn:disabled {
+                opacity: .35;
+                cursor: not-allowed;
+            }
+
+        .btn-blue {
+            background: var(--accent);
+            color: #000;
+        }
+
+            .btn-blue:hover:not(:disabled) {
+                box-shadow: 0 0 14px rgba(56,189,248,.35);
+                transform: translateY(-1px);
+            }
+
+        .btn-purple {
+            background: var(--accent2);
+            color: #fff;
+        }
+
+            .btn-purple:hover:not(:disabled) {
+                box-shadow: 0 0 14px rgba(129,140,248,.35);
+                transform: translateY(-1px);
+            }
+
+        .btn-green {
+            background: var(--green);
+            color: #000;
+        }
+
+            .btn-green:hover:not(:disabled) {
+                box-shadow: 0 0 14px rgba(52,211,153,.35);
+                transform: translateY(-1px);
+            }
+
+        .btn-ghost {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+            .btn-ghost:hover:not(:disabled) {
+                border-color: var(--accent);
+                color: var(--accent);
+            }
+
+        .btn-red {
+            background: var(--red);
+            color: #fff;
+        }
+
+        /* ICE box highlight */
+        .ice-box {
+            background: rgba(251,191,36,.04);
+            border: 1px solid rgba(251,191,36,.25);
+            border-radius: 9px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+
+            .ice-box .ice-title {
+                font-family: 'Space Mono',monospace;
+                font-size: .65rem;
+                color: var(--yellow);
+                margin-bottom: 8px;
+                font-weight: 700;
+            }
+
+        /* Divider */
+        .div-line {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 10px 0;
+            font-family: 'Space Mono',monospace;
+            font-size: .62rem;
+            color: var(--muted);
+        }
+
+            .div-line::before, .div-line::after {
+                content: '';
+                flex: 1;
+                height: 1px;
+                background: var(--border);
+            }
+
+        /* Log */
+        .logwrap {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 13px 15px;
+            margin-top: 14px;
+        }
+
+        .logtitle {
+            font-size: .62rem;
+            font-family: 'Space Mono',monospace;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 7px;
+        }
+
+        #log {
+            font-family: 'Space Mono',monospace;
+            font-size: .67rem;
+            color: var(--muted);
+            max-height: 120px;
+            overflow-y: auto;
+            line-height: 1.9;
+        }
+
+        .li {
+            color: var(--accent);
+        }
+
+        .ls {
+            color: var(--green);
+        }
+
+        .le {
+            color: var(--red);
+        }
+
+        .lw {
+            color: var(--yellow);
+        }
+
+        ::-webkit-scrollbar {
+            width: 3px
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 2px
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+
+        <header>
+            <div class="logo">
+                <div class="logo-icon"><i class="fa-solid fa-tower-broadcast" style="color:#000"></i></div>
+                <div><h1>WebRTC Demo</h1><span>Peer-to-peer · Video + Audio</span></div>
+            </div>
+            <div id="statusBadge"> OFFLINE</div>
+        </header>
+
+        <!-- Role -->
+        <div class="role-bar">
+            <button class="role-btn" id="rA" onclick="selectRole('A')">
+                <span class="ri"><i class="fa-solid fa-paper-plane"></i></span><span class="rl">Máy A — Caller</span>Tôi gọi trước
+            </button>
+            <button class="role-btn" id="rB" onclick="selectRole('B')">
+                <span class="ri"><i class="fa-solid fa-phone-flip"></i></span><span class="rl">Máy B — Answerer</span>Tôi nhận cuộc gọi
+            </button>
+        </div>
+
+        <div id="mainAlert" class="alert info show">Chọn vai trò của máy này để bắt đầu</div>
+
+        <!-- Videos -->
+        <div class="vrow">
+            <div class="vcard" id="vcL">
+                <video id="localVideo" autoplay muted playsinline></video>
+                <div class="vph" id="lph"><div class="ava"><i class="fa-solid fa-user"></i></div><p>LOCAL CAM</p></div>
+                <div class="vlabel you">BẠN</div>
+            </div>
+            <div class="vcard" id="vcR">
+                <video id="remoteVideo" autoplay playsinline></video>
+                <div class="vph" id="rph"><div class="ava"><i class="fa-solid fa-user-group"></i></div><p>REMOTE PEER</p></div>
+                <div class="vlabel them">ĐỐI PHƯƠNG</div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="cbar">
+            <button class="cb on" id="bMic" title="Mic" onclick="toggleMic()"><i class="fa-solid fa-microphone"></i></button>
+            <button class="cb on" id="bCam" title="Cam" onclick="toggleCam()"><i class="fa-solid fa-video"></i></button>
+            <button class="cb start" id="bStart" title="Bật" onclick="startCamera()"><i class="fa-solid fa-circle-play"></i></button>
+            <button class="cb hangup" id="bHangup" title="Ngắt" onclick="hangup()" style="display:none"><i class="fa-solid fa-phone-slash"></i></button>
+            <button class="cb on" title="Screen" onclick="shareScreen()"><i class="fa-solid fa-desktop"></i></button>
+        </div>
+
+        <!-- Wizard A -->
+        <div id="wA" style="display:none">
+            <div class="wstep act-a open" id="a1">
+                <div class="whead" onclick="tog('a1')">
+                    <div class="wnum">1</div>
+                    <div><div class="wtitle">Bật Camera → Tạo Offer</div><div class="wsub">Máy A thực hiện bước này trước</div></div>
+                    <div class="warr"><i class="fa-solid fa-chevron-down"></i></div>
+                </div>
+                <div class="wbody">
+                    <div class="brow" style="margin-bottom:11px">
+                        <button class="btn btn-blue" onclick="startCamera()"><i class="fa-solid fa-camera"></i> Bật Camera & Mic</button>
+                        <button class="btn btn-purple" id="bOffer" onclick="createOffer()" disabled><i class="fa-solid fa-file-export"></i> Tạo Offer SDP</button>
+                    </div>
+                    <div class="field">
+                        <label>OFFER SDP — Copy gửi cho Máy B</label>
+                        <textarea id="sdpOfferOut" placeholder="Offer SDP sẽ xuất hiện ở đây..." readonly></textarea>
+                        <div class="hint warn" id="hOffer" style="display:none">Copy toàn bộ nội dung trên → gửi cho Máy B ngay bây giờ</div>
+                    </div>
+                    <div class="brow">
+                        <button class="btn btn-ghost" onclick="cp('sdpOfferOut','cpOffer')"><i class="fa-solid fa-copy"></i> Copy Offer</button>
+                        <span id="cpOffer" class="hint ok" style="display:none;align-self:center">Copied!</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="wstep pending" id="a2">
+                <div class="whead" onclick="tog('a2')">
+                    <div class="wnum">2</div>
+                    <div><div class="wtitle">Dán Answer từ Máy B</div><div class="wsub">Sau khi Máy B gửi Answer SDP về</div></div>
+                    <div class="warr"><i class="fa-solid fa-chevron-down"></i></div>
+                </div>
+                <div class="wbody">
+                    <div class="field">
+                        <label>Dán ANSWER SDP nhận từ Máy B</label>
+                        <textarea id="sdpAnswerIn" placeholder="Dán SDP answer từ Máy B vào đây..."></textarea>
+                    </div>
+                    <div class="brow">
+                        <button class="btn btn-green" onclick="setAnswerA()"><i class="fa-solid fa-check-circle"></i> Set Answer → Kết nối</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="wstep pending" id="a3">
+                <div class="whead" onclick="tog('a3')">
+                    <div class="wnum">3</div>
+                    <div><div class="wtitle">Trao đổi ICE Candidates (2 chiều!)</div><div class="wsub">Phải thực hiện đầy đủ cả 2 chiều</div></div>
+                    <div class="warr"><i class="fa-solid fa-chevron-down"></i></div>
+                </div>
+                <div class="wbody">
+                    <div class="ice-box">
+                        <div class="ice-title">BƯỚC 3a — Gửi ICE của Máy A cho Máy B</div>
+                        <div class="field">
+                            <label>ICE CANDIDATES CỦA MÁY A</label>
+                            <textarea id="iceAOut" placeholder="ICE candidates..." readonly></textarea>
+                            <div class="hint" id="iceACount"></div>
+                        </div>
+                        <div class="brow">
+                            <button class="btn btn-ghost" onclick="cp('iceAOut','cpIceA')"><i class="fa-solid fa-copy"></i> Copy ICE của A</button>
+                            <span id="cpIceA" class="hint ok" style="display:none;align-self:center">Copied!</span>
+                        </div>
+                    </div>
+                    <div class="div-line">Sau đó Máy B sẽ gửi ICE của họ</div>
+                    <div class="ice-box">
+                        <div class="ice-title">BƯỚC 3b — Nhận ICE của Máy B</div>
+                        <div class="field">
+                            <label>Dán ICE CANDIDATES từ Máy B</label>
+                            <textarea id="iceBIn" placeholder="Dán ICE candidates..."></textarea>
+                        </div>
+                        <div class="brow">
+                            <button class="btn btn-green" onclick="addIce('iceBIn')"><i class="fa-solid fa-plus"></i> Add ICE từ Máy B</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Wizard B -->
+        <div id="wB" style="display:none">
+            <div class="wstep act-b open" id="b1">
+                <div class="whead" onclick="tog('b1')">
+                    <div class="wnum">1</div>
+                    <div><div class="wtitle">Nhận Offer → Tạo Answer</div><div class="wsub">Sau khi Máy A gửi Offer SDP</div></div>
+                    <div class="warr"><i class="fa-solid fa-chevron-down"></i></div>
+                </div>
+                <div class="wbody">
+                    <div class="brow" style="margin-bottom:11px">
+                        <button class="btn btn-purple" onclick="startCamera()"><i class="fa-solid fa-video"></i> Bật Camera & Mic</button>
+                    </div>
+                    <div class="field">
+                        <label>Dán OFFER SDP nhận từ Máy A</label>
+                        <textarea id="sdpOfferIn" placeholder="Dán SDP offer từ Máy A vào đây..."></textarea>
+                    </div>
+                    <div class="brow">
+                        <button class="btn btn-green" onclick="setOfferB()"><i class="fa-solid fa-check"></i> Set Offer & Tạo Answer</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="wstep pending" id="b2">
+                <div class="whead" onclick="tog('b2')">
+                    <div class="wnum">2</div>
+                    <div><div class="wtitle">Gửi Answer về Máy A</div><div class="wsub">Copy Answer SDP và gửi lại</div></div>
+                    <div class="warr"><i class="fa-solid fa-chevron-down"></i></div>
+                </div>
+                <div class="wbody">
+                    <div class="field">
+                        <label>ANSWER SDP của Máy B</label>
+                        <textarea id="sdpAnswerOut" placeholder="Answer SDP..." readonly></textarea>
+                    </div>
+                    <div class="brow">
+                        <button class="btn btn-ghost" onclick="cp('sdpAnswerOut','cpAnswer')"><i class="fa-solid fa-copy"></i> Copy Answer</button>
+                        <span id="cpAnswer" class="hint ok" style="display:none;align-self:center">Copied!</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="wstep pending" id="b3">
+                <div class="whead" onclick="tog('b3')">
+                    <div class="wnum">3</div>
+                    <div><div class="wtitle">Trao đổi ICE Candidates (2 chiều!)</div><div class="wsub">Phải thực hiện đầy đủ cả 2 chiều</div></div>
+                    <div class="warr"><i class="fa-solid fa-chevron-down"></i></div>
+                </div>
+                <div class="wbody">
+                    <div class="ice-box">
+                        <div class="ice-title">BƯỚC 3a — Gửi ICE của Máy B cho Máy A</div>
+                        <div class="field">
+                            <label>ICE CANDIDATES CỦA MÁY B</label>
+                            <textarea id="iceBOut" placeholder="ICE candidates..." readonly></textarea>
+                            <div class="hint" id="iceBCount"></div>
+                        </div>
+                        <div class="brow">
+                            <button class="btn btn-ghost" onclick="cp('iceBOut','cpIceB')"><i class="fa-solid fa-copy"></i> Copy ICE của B</button>
+                            <span id="cpIceB" class="hint ok" style="display:none;align-self:center">Copied!</span>
+                        </div>
+                    </div>
+                    <div class="div-line">Sau đó nhận ICE từ Máy A</div>
+                    <div class="ice-box">
+                        <div class="ice-title">BƯỚC 3b — Nhận ICE của Máy A</div>
+                        <div class="field">
+                            <label>Dán ICE CANDIDATES từ Máy A</label>
+                            <textarea id="iceAIn" placeholder="Dán ICE candidates..."></textarea>
+                        </div>
+                        <div class="brow">
+                            <button class="btn btn-green" onclick="addIce('iceAIn')"><i class="fa-solid fa-plus"></i> Add ICE từ Máy A</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="logwrap">
+            <div class="logtitle">Console Log</div>
+            <div id="log"></div>
+        </div>
+
+    </div>
+
+    <script>
+        pc = null, localStream = null, role = null;
+        let isMicOn = true, isCamOn = true;
+        let myIce = []; // ICE candidates thu được từ máy mình
+
+        // ICE Server config: STUN + TURN
+        // STUN: giúp máy biết IP công khai (miễn phí, không relay data)
+        // TURN: relay data khi STUN thất bại (NAT đối xứng, firewall, 4G strict)
+        // Free public TURN: openrelay.metered.ca (giới hạn băng thông, chỉ dùng demo)
+        // Production: tự deploy Coturn hoặc dùng Twilio / Metered.ca paid plan
+
+        const ICE_CONFIG = {
+            iceServers: [
+                // STUN servers
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun.cloudflare.com:3478' },
+
+                //TURN servers
+                {
+                    urls: 'turn:openrelay.metered.ca:80',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                },
+                {
+                    urls: 'turns:openrelay.metered.ca:443',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                }
+            ],
+            iceCandidatePoolSize: 10,
+        };
+
+        //Logger
+        function log(msg, t = 'i') {
+            const d = document.getElementById('log');
+            const el = document.createElement('div');
+            el.className = { 'i': 'li', 's': 'ls', 'e': 'le', 'w': 'lw' }[t] || 'li';
+            const cleanMsg = msg.replace(/[\u{1F300}-\u{1F6FF}]/gu, '').trim();
+            el.textContent = `[${new Date().toLocaleTimeString('vi-VN')}] ${cleanMsg}`;
+            d.insertBefore(el, d.firstChild);
+        }
+
+        function setAlert(msg, type = 'info') {
+            const el = document.getElementById('mainAlert');
+            el.className = `alert ${type} show`;
+            el.innerHTML = msg;
+        }
+
+        function setStatus(s) {
+            const el = document.getElementById('statusBadge');
+            const m = {
+                off: ['OFFLINE', ''],
+                ready: ['READY', ''],
+                call: ['CONNECTING', 'calling'],
+                conn: ['CONNECTED', 'connected']
+            };
+            const [t, c] = m[s] || m.off;
+            el.textContent = t; el.className = 'status-badge ' + c;
+        }
+        //Role
+        function selectRole(r) {
+            role = r;
+            document.getElementById('rA').className = 'role-btn' + (r === 'A' ? ' sel-a' : '');
+            document.getElementById('rB').className = 'role-btn' + (r === 'B' ? ' sel-b' : '');
+            document.getElementById('wA').style.display = r === 'A' ? 'block' : 'none';
+            document.getElementById('wB').style.display = r === 'B' ? 'block' : 'none';
+            const msg = r === 'A'
+                ? 'Máy A: Bật camera -> Tạo Offer -> Copy SDP gửi Máy B'
+                : 'Máy B: Bật camera -> Dán Offer từ A -> Set & Tạo Answer';
+            setAlert(msg, 'info');
+            log(`Vai trò: Máy ${r}`, 'i');
+            buildPC();
+        }
+
+        //PeerConnection
+        function buildPC() {
+            if (pc) { pc.close(); pc = null; }
+            myIce = [];
+            const iceTA = role === 'A' ? 'iceAOut' : 'iceBOut';
+            const countEl = role === 'A' ? 'iceACount' : 'iceBCount';
+            if (document.getElementById(iceTA)) document.getElementById(iceTA).value = '';
+
+            pc = new RTCPeerConnection(ICE_CONFIG);
+            log('RTCPeerConnection khởi tạo', 'i');
+
+            // Attach existing tracks
+            if (localStream) {
+                localStream.getTracks().forEach(t => { pc.addTrack(t, localStream); });
+                log('Tracks attached', 's');
+            }
+
+            // Remote stream
+            pc.ontrack = (e) => {
+                log('Nhận được remote stream!', 's');
+                document.getElementById('remoteVideo').srcObject = e.streams[0];
+                document.getElementById('rph').style.display = 'none';
+                document.getElementById('vcR').classList.add('rlive');
+                setStatus('conn');
+                setAlert('KẾT NỐI THÀNH CÔNG! Video đang truyền.', 'ok');
+            };
+
+            // ICE gathering
+            pc.onicecandidate = (e) => {
+                if (e.candidate) {
+                    myIce.push(e.candidate.toJSON());
+                    const ta = document.getElementById(iceTA);
+                    if (ta) ta.value = JSON.stringify(myIce, null, 2);
+                    log(`ICE candidate: ${e.candidate.type} / ${e.candidate.protocol}`, 'i');
+                } else {
+                    const cnt = myIce.length;
+                    log(`ICE gather xong - ${cnt} candidates`, 'w');
+                    const cEl = document.getElementById(countEl);
+                    if (cEl) cEl.textContent = `${cnt} candidates sẵn sàng`;
+                    if (role === 'A') { markDone('a2'); activate('a3'); }
+                    if (role === 'B') { markDone('b2'); activate('b3'); }
+                    setAlert(`ICE của bạn đã sẵn sàng (${cnt} candidates). Trao đổi ICE ở Bước 3.`, 'warn');
+                }
+            };
+
+            pc.oniceconnectionstatechange = () => {
+                const s = pc.iceConnectionState;
+                log(`ICE state -> ${s}`, (s === 'connected' || s === 'completed') ? 's' : 'w');
+                if (s === 'connected' || s === 'completed') setStatus('conn');
+            };
+        }
+
+        //Camera
+        async function startCamera() {
+            try {
+                log('Yêu cầu Camera & Mic...', 'i');
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('localVideo').srcObject = localStream;
+                document.getElementById('lph').style.display = 'none';
+                document.getElementById('vcL').classList.add('live');
+                document.getElementById('bStart').style.display = 'none';
+                document.getElementById('bHangup').style.display = 'flex';
+                log('Camera & Mic sẵn sàng!', 's');
+                setStatus('ready');
+                if (pc) {
+                    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+                }
+                if (role === 'A') document.getElementById('bOffer').disabled = false;
+            } catch (e) {
+                log('Camera lỗi: ' + e.message, 'e');
+            }
+        }
+
+        //Máy A: Tạo Offer
+        async function createOffer() {
+            try {
+                setStatus('call');
+                const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+                await pc.setLocalDescription(offer);
+                document.getElementById('sdpOfferOut').value = JSON.stringify(pc.localDescription);
+                document.getElementById('hOffer').style.display = 'block';
+                log('Offer tạo xong!', 's');
+                markDone('a1'); activate('a2');
+            } catch (e) { log('Offer lỗi: ' + e.message, 'e'); }
+        }
+
+        //Máy A: Set Answer từ B
+        async function setAnswerA() {
+            const raw = document.getElementById('sdpAnswerIn').value.trim();
+            try {
+                await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(raw)));
+                log('Remote Answer set xong!', 's');
+                activate('a3');
+            } catch (e) { log('Set answer lỗi: ' + e.message, 'e'); }
+        }
+
+        //Máy B: Set Offer => Tạo Answer
+        async function setOfferB() {
+            const raw = document.getElementById('sdpOfferIn').value.trim();
+            if (!localStream) { await startCamera(); }
+            try {
+                await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(raw)));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                document.getElementById('sdpAnswerOut').value = JSON.stringify(pc.localDescription);
+                log('Answer tạo xong!', 's');
+                markDone('b1'); activate('b2');
+            } catch (e) { log('Set offer lỗi: ' + e.message, 'e'); }
+        }
+
+        //Add ICE (dùng chung cho cả A và B)
+        async function addIce(taId) {
+            const raw = document.getElementById(taId).value.trim();
+            try {
+                const parsed = JSON.parse(raw);
+                const list = Array.isArray(parsed) ? parsed : [parsed];
+                for (const c of list) await pc.addIceCandidate(new RTCIceCandidate(c));
+                log(`Đã add ICE candidates từ đối phương!`, 's');
+            } catch (e) { log('Add ICE lỗi: ' + e.message, 'e'); }
+        }
+
+        // Các chức năng: Tắt|Mở => Míc, Cam, chia sẻ màn hình
+        function toggleMic() {
+            if (!localStream) return;
+            isMicOn = !isMicOn;
+            localStream.getAudioTracks().forEach(t => t.enabled = isMicOn);
+            const b = document.getElementById('bMic');
+            b.className = `cb ${isMicOn ? 'on' : 'off'}`;
+            b.innerHTML = isMicOn ? '<i class="fa-solid fa-microphone"></i>' : '<i class="fa-solid fa-microphone-slash"></i>';
+            log(`Mic: ${isMicOn ? 'ON' : 'OFF'}`, isMicOn ? 's' : 'w');
+        }
+
+        function toggleCam() {
+            if (!localStream) return;
+            isCamOn = !isCamOn;
+            localStream.getVideoTracks().forEach(t => t.enabled = isCamOn);
+            const b = document.getElementById('bCam');
+            b.className = `cb ${isCamOn ? 'on' : 'off'}`;
+            b.innerHTML = isCamOn ? '<i class="fa-solid fa-video"></i>' : '<i class="fa-solid fa-video-slash"></i>';
+            log(`Cam: ${isCamOn ? 'ON' : 'OFF'}`, isCamOn ? 's' : 'w');
+        }
+
+        async function shareScreen() {
+            try {
+                const ss = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                const st = ss.getVideoTracks()[0];
+                document.getElementById('localVideo').srcObject = ss;
+                if (pc) {
+                    const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+                    if (sender) await sender.replaceTrack(st);
+                }
+                st.onended = () => {
+                    document.getElementById('localVideo').srcObject = localStream;
+                    if (pc && localStream) {
+                        const vt = localStream.getVideoTracks()[0];
+                        const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+                        if (sender && vt) sender.replaceTrack(vt);
+                    }
+                };
+                log('Screen share bật', 's');
+            } catch (e) { log('Screen share lỗi: ' + e.message, 'e'); }
+        }
+
+        function hangup() {
+            if (pc) { pc.close(); pc = null; }
+            if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+            document.getElementById('localVideo').srcObject = null;
+            document.getElementById('remoteVideo').srcObject = null;
+            document.getElementById('lph').style.display = 'flex';
+            document.getElementById('rph').style.display = 'flex';
+            document.getElementById('vcL').classList.remove('live');
+            document.getElementById('vcR').classList.remove('rlive');
+            document.getElementById('bStart').style.display = 'flex';
+            document.getElementById('bHangup').style.display = 'none';
+            setStatus('off');
+            log('Ngắt kết nối.', 'w');
+        }
+
+        function tog(id) { document.getElementById(id).classList.toggle('open'); }
+        function activate(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.classList.remove('pending', 'done');
+            el.className = `wstep ${(id.startsWith('a')) ? 'act-a' : 'act-b'} open`;
+        }
+        function markDone(id) {
+            const el = document.getElementById(id);
+            if (el) el.className = 'wstep done';
+        }
+        function cp(taId, hintId) {
+            const ta = document.getElementById(taId);
+            if (!ta?.value) return;
+            navigator.clipboard.writeText(ta.value).then(() => {
+                log(`Đã copy nội dung`, 's');
+                if (hintId) {
+                    const h = document.getElementById(hintId);
+                    h.style.display = 'inline';
+                    setTimeout(() => h.style.display = 'none', 2500);
+                }
+            });
+        }
+
+        log('WebRTC Demo khởi động.', 's');
+    </script>
+
+</body>
+</html>
